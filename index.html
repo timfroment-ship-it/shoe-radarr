@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d0f" />
+  <meta name="description" content="Radar visuel continu pour repérer des chaussures de randonnée et trail en brocante." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>Brocante Shoe Radar V10</title>
+</head>
+<body>
+  <main class="app">
+    <section class="camera-shell">
+      <video id="camera" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <div id="idle-screen" class="idle-screen">
+        <p class="eyebrow">BROCANTE SHOE RADAR · V10</p>
+        <h1>Scanne le stand en continu.</h1>
+        <p>L'app détecte d'abord les chaussures dans le flux, puis zoome virtuellement sur chaque paire pour estimer Salomon, Merrell, Hoka ou une catégorie outdoor.</p>
+        <button id="start" class="start-button">Démarrer le radar</button>
+        <p class="privacy">La vidéo reste dans le navigateur. L'analyse se fait image par image sur l'appareil.</p>
+      </div>
+
+      <header class="topbar hidden" id="topbar">
+        <div>
+          <span id="live-dot" class="live-dot"></span>
+          <strong id="state">CAMÉRA</strong>
+          <small id="scan-info">préparation…</small>
+        </div>
+        <div class="top-actions">
+          <button id="pause" class="icon-button">Pause</button>
+          <button id="settings-open" class="icon-button">Réglages</button>
+        </div>
+      </header>
+
+      <div id="alert-banner" class="alert-banner hidden">
+        <span id="alert-kicker">CIBLE</span>
+        <strong id="alert-title">—</strong>
+        <small id="alert-score">—</small>
+      </div>
+
+      <div class="bottom-panel hidden" id="bottom-panel">
+        <div class="radar-kpis">
+          <div><span>dernier cycle</span><strong id="last-scan">—</strong></div>
+          <div><span>chaussures</span><strong id="detection-count">0</strong></div>
+          <div><span>classifiées</span><strong id="classified-count">0</strong></div>
+          <div><span>alertes</span><strong id="alert-count">0</strong></div>
+        </div>
+        <div id="detections" class="detections">
+          <span class="empty-detection">Aucune cible confirmée.</span>
+        </div>
+      </div>
+
+      <button id="torch" class="floating-button hidden" title="Torche">Lampe</button>
+    </section>
+
+    <dialog id="settings">
+      <form method="dialog" class="settings-card">
+        <div class="settings-head">
+          <div>
+            <p class="eyebrow">RÉGLAGES RADAR</p>
+            <h2>Ce que l'app doit signaler</h2>
+          </div>
+          <button value="close" class="close-button">Fermer</button>
+        </div>
+
+        <div class="setting-group">
+          <h3>Marques prioritaires</h3>
+          <label><input class="watch-brand" type="checkbox" value="salomon" checked /> Salomon</label>
+          <label><input class="watch-brand" type="checkbox" value="merrell" checked /> Merrell</label>
+          <label><input class="watch-brand" type="checkbox" value="hoka" checked /> Hoka</label>
+          <label><input class="watch-brand" type="checkbox" value="la sportiva" checked /> La Sportiva</label>
+          <label><input class="watch-brand" type="checkbox" value="adidas terrex" checked /> Adidas Terrex</label>
+          <label><input class="watch-brand" type="checkbox" value="scarpa" checked /> Scarpa</label>
+        </div>
+
+        <div class="setting-group">
+          <h3>Catégories générales</h3>
+          <label><input id="watch-hiking" type="checkbox" checked /> Chaussure / botte de randonnée</label>
+          <label><input id="watch-trail" type="checkbox" checked /> Chaussure de trail</label>
+          <label><input id="generic-alert" type="checkbox" checked /> Me signaler aussi une chaussure outdoor sans marque reconnue</label>
+        </div>
+
+        <div class="grid-two">
+          <label class="range-label">Sensibilité détection chaussure
+            <input id="threshold" type="range" min="0.03" max="0.20" step="0.01" value="0.07" />
+            <span id="threshold-value">0,07</span>
+          </label>
+          <label class="range-label">Confiance marque minimale
+            <input id="brand-threshold" type="range" min="0.18" max="0.70" step="0.02" value="0.34" />
+            <span id="brand-threshold-value">0,34</span>
+          </label>
+          <label class="range-label">Écart mini avec le 2e choix
+            <input id="brand-margin" type="range" min="0.00" max="0.30" step="0.01" value="0.07" />
+            <span id="brand-margin-value">0,07</span>
+          </label>
+          <label class="range-label">Délai entre cycles
+            <input id="interval" type="range" min="500" max="4000" step="250" value="1500" />
+            <span id="interval-value">1,50 s</span>
+          </label>
+        </div>
+
+        <div class="setting-group">
+          <h3>Confirmation et performances</h3>
+          <label>Confirmations avant alerte
+            <select id="confirm-frames">
+              <option value="1">1 cycle — plus rapide</option>
+              <option value="2" selected>2 cycles — recommandé</option>
+              <option value="3">3 cycles — plus prudent</option>
+            </select>
+          </label>
+          <label>Nombre maximum de chaussures classifiées par cycle
+            <select id="max-crops">
+              <option value="1">1 — téléphone lent</option>
+              <option value="2" selected>2 — recommandé</option>
+              <option value="3">3 — téléphone puissant</option>
+              <option value="4">4 — très lourd</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="setting-group inline-settings">
+          <label><input id="sound" type="checkbox" checked /> Bip sonore</label>
+          <label><input id="vibration" type="checkbox" checked /> Vibration si disponible</label>
+          <label><input id="boxes" type="checkbox" checked /> Afficher les rectangles</label>
+        </div>
+
+        <div class="setting-group">
+          <p class="small"><strong>V10 utilise deux modèles :</strong> OWL-ViT repère les chaussures, puis CLIP classe seulement les crops retenus. Le premier chargement est donc plus lourd, mais la reconnaissance de marque est mieux ciblée que dans la V9.</p>
+        </div>
+      </form>
+    </dialog>
+
+    <canvas id="frame" class="hidden-canvas"></canvas>
+  </main>
+  <script type="module" src="./app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>
